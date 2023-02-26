@@ -2,31 +2,31 @@ const telegramBot = require("node-telegram-bot-api");
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+require('dotenv').config()
+// const fetch = require("node-fetch")
+
 const Board = require("./models/board.model");
 const connect = require("./config/db");
-const token = "5408828169:AAE8kErfrLKqiC6JY1Keoi5EvV56wOwElAg";
+const Card = require("./models/card.model");
 // const Trello = require('node-trello');
-
-const bot = new telegramBot(token, { polling: true });
+const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+const TRELLO_KEY = process.env.TRELLO_KEY;
+const bot = new telegramBot(process.env.BOT_TOKEN, { polling: true });  //  created a new bot
 const app = express();
 app.use(cors());
-// const t = new Trello("9808782db7c98d124243ace66edc9e6d", "ATTAb874ba43023a3dfc7b2358ec95fb86be965e1580b257e0b30cfba509024b6e0724B7AF25");
+
+// // Greet initially when server start :
 bot.onText(/\/start/, (msg) => {
-  let mg = `/create board - Create a newtrello board on trello 
-  /update board - update a  board on trello`;
+  let mg = `<strong>Hello ${msg.from.first_name} :</strong>\nWelcome To the Cloud Of Flame Api Service\n****************************************\n\nCreate a New board on flame clod aoi service click on - /create\nTo change an existing board title click on - /update`;
 
-  bot.sendMessage(msg.chat.id, mg);
+  bot.sendMessage(msg.chat.id, mg, { parse_mode: "HTML" });
 });
-// bot.onText(/\/create/, (msg) => {
-//   bot.sendMessage(msg.chat.id, "<strong>Enter your Board name</strong>", {
-//     parse_mode: "HTML",
-//   });
-// });
 
-bot.onText(/\/create/, async (msg) => {
+// Update an Existing Board on Trello 
+bot.onText(/\/update/, async (msg) => {
   const namePrompt = await bot.sendMessage(
     msg.chat.id,
-    "Hi, Put a Board name",
+    "Type, new title for the existing board",
     {
       reply_markup: {
         force_reply: true,
@@ -36,32 +36,57 @@ bot.onText(/\/create/, async (msg) => {
   bot.onReplyToMessage(msg.chat.id, namePrompt.message_id, async (nameMsg) => {
     const name = nameMsg.text;
     console.log(name);
-    // save name in DB if you want to ...
-    let res = await fetch(
-      `https://api.trello.com/1/boards/?name=${name}&key=9808782db7c98d124243ace66edc9e6d&token=ATTAb874ba43023a3dfc7b2358ec95fb86be965e1580b257e0b30cfba509024b6e0724B7AF25`,
+    let board = await Board.find().sort({ _id: -1 }).limit(1);
+    console.log("b", board[0].boardId);
+    fetch(
+      `https://api.trello.com/1/boards/${board[0].boardId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&name=${name}`,
       {
-        method: "POST",
+        method: "PUT",
       }
     )
       .then((response) => {
         console.log(`Response: ${response.status} ${response.statusText}`);
-        return response.json();
+        return response.text();
       })
-      .then((text) => text)
+      .then((text) => console.log(text))
       .catch((err) => console.error(err));
-    console.log(res.id);
+  });
+});
+
+// Creating The New Board on Trello
+bot.onText(/\/create/, async (msg) => {
+  const namePrompt = await bot.sendMessage(
+    msg.chat.id,
+    "Hi, Put a New Board title",
+    {
+      reply_markup: {
+        force_reply: true,
+      },
+    }
+  );
+  bot.onReplyToMessage(msg.chat.id, namePrompt.message_id, async (nameMsg) => {
+    const name = nameMsg.text;
+    console.log(name);
+
+    let res = await axios.post(
+      `https://api.trello.com/1/boards/?name=${name}&${TRELLO_KEY}&token=${TRELLO_TOKEN}`
+    );
+    console.log(res.data);
 
     await bot.sendMessage(
       msg.chat.id,
-      `Board with name - <b>${name} </b>is created \nadd new card to the board - \nClick /here`,
+      `Board with name - <b>${name} </b>is created\n**************************** \nAdd New Card to the Board - \nClick on - /here to create new card to the board`,
       { parse_mode: "HTML" }
     );
     await Board.create({
-      boardId: res.id,
-      name: res.name,
+      boardId: res.data.id,
+      name: res.data.name,
     });
   });
 });
+
+// Creating New Card for the existing Board
+
 bot.onText(/\/here/, async (msg) => {
   console.log(msg.chat.id);
   const namePrompt = await bot.sendMessage(msg.chat.id, "Hi, Put a card name", {
@@ -73,7 +98,7 @@ bot.onText(/\/here/, async (msg) => {
   console.log("b", board[0].boardId);
 
   let res = await fetch(
-    `https://api.trello.com/1/boards/${board[0].boardId}/lists?key=9808782db7c98d124243ace66edc9e6d&token=ATTAb874ba43023a3dfc7b2358ec95fb86be965e1580b257e0b30cfba509024b6e0724B7AF25`
+    `https://api.trello.com/1/boards/${board[0].boardId}/lists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
   );
   let data = await res.json();
   console.log(data);
@@ -82,13 +107,19 @@ bot.onText(/\/here/, async (msg) => {
     const name = nameMsg.text;
     console.log(name);
     let res1 = await fetch(
-      `https://api.trello.com/1/cards?idList=${idList}&key=9808782db7c98d124243ace66edc9e6d&token=ATTAb874ba43023a3dfc7b2358ec95fb86be965e1580b257e0b30cfba509024b6e0724B7AF25&name=${name}`,
+      `https://api.trello.com/1/cards?idList=${idList}&key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&name=${name}`,
       {
         method: "POST",
       }
     );
     let data1 = await res1.json();
-    console.log(data1);
+    console.log(data1.id);
+    await Card.create({
+      cardId: data1.id,
+      cardName: name,
+    });
+    await Board.updateOne({ _id: board[0]._id }, { $push: { cards: name } });
+
     await bot.sendMessage(
       msg.chat.id,
       `card with name - <b>${name} </b>is created \n**************************************\nDo you want to customize your card \nClick to /proceed`,
@@ -96,15 +127,49 @@ bot.onText(/\/here/, async (msg) => {
     );
   });
 });
-bot.onText(/\/create/, async (msg) => {
-  await bot.sendMessage(
-  msg.chat.id,
-  `card with name - <b>${name} </b>is created \n**************************************\nDo you want to customize your card \nClick to /proceed`,
-  { parse_mode: "HTML" }
-);
+
+// Removed existing Card from the Board 
+bot.onText(/\/proceed/, async (msg) => {
+  const namePrompt = await bot.sendMessage(
+    msg.chat.id,
+    "Please, enter name of the card to Remove from Board",
+    {
+      reply_markup: {
+        force_reply: true,
+      },
+    }
+  );
+  bot.onReplyToMessage(msg.chat.id, namePrompt.message_id, async (nameMsg) => {
+    const name = nameMsg.text;
+    console.log(name);
+    let card = await Card.findOne({
+      cardName: name,
+    });
+    console.log("card", card);
+    if (card) {
+      let res = await axios.delete(
+        `https://api.trello.com/1/cards/${card.cardId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
+      );
+      let data = res.data;
+      console.log(data);
+      await bot.sendMessage(
+        msg.chat.id,
+        `card with name - <b>${name} </b>is removed successfully \n**************************************\nDo you want to restart again\nClick to - /restart`,
+        { parse_mode: "HTML" }
+      );
+    }
+  });
 });
+// Restart from the Beggining 
+bot.onText(/\/restart/, (msg) => {
+  let mg = `<strong>Hello, ${msg.from.first_name} :</strong>\nWelcome To the Cloud Of Flame Api Service\n****************************************\n\nCreate a New board on flame clod aoi service click on - /create\nTo change an existing board title click on - /update`;
+
+  bot.sendMessage(msg.chat.id, mg, { parse_mode: "HTML" });
+});
+
+// Server Initialzation 
 bot.on("message", function onText(msg) {
-  // console.log(msg);
+  console.log(msg.from.first_name);
   let isQuery = msg.text.split("").includes("/");
   // console.log("arr",isQuery);
   if (isQuery) {
@@ -113,9 +178,9 @@ bot.on("message", function onText(msg) {
   bot.sendMessage(msg.chat.id, "I am alive!");
 });
 
+
 app.listen(process.env.PORT || 8000, async () => {
   await connect();
   console.log("Server started on 8000");
 });
-//Token = "ATTAb874ba43023a3dfc7b2358ec95fb86be965e1580b257e0b30cfba509024b6e0724B7AF25"
-//Key="9808782db7c98d124243ace66edc9e6d"
+
