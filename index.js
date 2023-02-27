@@ -3,12 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 require('dotenv').config()
-// const fetch = require("node-fetch")
 
 const Board = require("./models/board.model");
 const connect = require("./config/db");
 const Card = require("./models/card.model");
-// const Trello = require('node-trello');
+
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const BOT_TOKEN = process.env.BOT_TOKEN;
