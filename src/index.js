@@ -11,7 +11,9 @@ const Card = require("./models/card.model");
 // const Trello = require('node-trello');
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const TRELLO_KEY = process.env.TRELLO_KEY;
-const bot = new telegramBot(process.env.BOT_TOKEN, { polling: true });  //  created a new bot
+const BOT_TOKEN = process.env.BOT_TOKEN;
+console.log(BOT_TOKEN)
+const bot = new telegramBot(BOT_TOKEN, { polling: true });  //  created a new bot
 const app = express();
 app.use(cors());
 
@@ -179,8 +181,8 @@ bot.on("message", function onText(msg) {
 });
 
 
-app.listen(process.env.PORT || 8000, async () => {
+app.listen(8080, async () => {
   await connect();
-  console.log("Server started on 8000");
+  console.log("Server started on 8080");
 });
 
