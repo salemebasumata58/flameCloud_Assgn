@@ -10,9 +10,9 @@ const Card = require("./models/card.model");
 
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const TRELLO_KEY = process.env.TRELLO_KEY;
-const BOT_TOKEN = process.env.BOT_TOKEN;
-console.log(BOT_TOKEN)
-const bot = new telegramBot(BOT_TOKEN, { polling: true });  //  created a new bot
+// const BOT_TOKEN = process.env.BOT_TOKEN;
+// console.log(BOT_TOKEN)
+const bot = new telegramBot(process.env.BOT_TOKEN, { polling: true });  //  created a new bot
 const app = express();
 app.use(cors());
 
